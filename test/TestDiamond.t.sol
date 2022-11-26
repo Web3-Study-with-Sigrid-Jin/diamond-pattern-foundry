@@ -74,6 +74,53 @@ contract TestDiamond is TestHelper {
             loupeFacetAddress
         );
     }
+
+    function testAddAllFacet1FunctionSelectorsAndCall() public {
+        bool success;
+        bytes memory data;
+
+        facetCuts.push(IDiamondCut.FacetCut({
+            facetAddress: TEST1_FACET_ADDR,
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: test1FacetSelectors
+        }));
+
+        vm.prank(DIAMOND_OWNER);
+
+        // Diamond Cut
+        (success, ) = diamondAddress.call(
+            abi.encodeWithSelector(
+                IDiamondCut.diamondCut.selector,
+                facetCuts,
+                address(0),
+                bytes('')
+            )
+        );
+
+        assertTrue(success, "TEST_DIAMOND::CALL_FAILED");
+
+        // Test Facet add and facet function selectors matching
+        (success, data) = diamondAddress.call(abi.encode(IDiamondLoupe.facetAddresses.selector));
+
+        assertTrue(success, "TEST_DIAMOND::CALL_FAILED");
+
+        address[] memory facetAddresses = abi.decode(data, (address[]));
+
+        assertEq(STANDARD_FACET_COUNT + 1, facetAddresses.length);
+        assertEq(_getFacetSelectors(TEST1_FACET_ADDR).length, test1FacetSelectors.length);
+        assertEq(
+            keccak256(abi.encode(_getFacetSelectors(TEST1_FACET_ADDR))),
+            keccak256(abi.encode(test1FacetSelectors))
+        );
+
+        // Test call to a Test1Facet function
+        (success, data) = diamondAddress.call(abi.encode(Test1Facet.Func2Test1.selector));
+        assertTrue(success, "TEST_DIAMOND::CALL_FAILED");
+
+        uint256 retVal = abi.decode(data, (uint256));
+        assertEq(retVal, 2535);
+
+    }
     // more... https://github.com/NaviNavu/diamond-1-foundry/blob/de39b4c026/test/TestDiamond.t.sol
     // https://github.com/DvideN/diamond-1-hardhat
 }
